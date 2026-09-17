@@ -1,38 +1,30 @@
 import calendar
 from datetime import date, timedelta
+from typing import Dict, Any
 
-def calculate_monthly_bill(subscription, year: int, month: int):
-    # Total days and weekdays in the given month
-    _, total_days = calendar.monthrange(year, month)
-    
-    total_weekdays = 0
-    for day in range(1, total_days + 1):
-        # 0 = Monday, ..., 4 = Friday
-        if date(year, month, day).weekday() < 5:
-            total_weekdays += 1
+def calculate_monthly_bill(subscription, year: int, month: int) -> Dict[str, Any]:
+    _, days_in_month = calendar.monthrange(year, month)
+    daily_rate = subscription.monthly_rate / days_in_month
 
-    # Count paused weekdays for this subscription
-    paused_weekdays = 0
-    if hasattr(subscription, 'pause_logs') and subscription.pause_logs:
-        for log in subscription.pause_logs:
-            curr_date = log.pause_start
-            while curr_date <= log.pause_end:
-                if curr_date.year == year and curr_date.month == month:
-                    if curr_date.weekday() < 5:
-                        paused_weekdays += 1
-                curr_date += timedelta(days=1)
+    paused_days_count = 0
+    month_start = date(year, month, 1)
+    month_end = date(year, month, days_in_month)
 
-    # Delivered weekdays
-    delivered_weekdays = max(0, total_weekdays - paused_weekdays)
-    
-    # Calculate daily rate based on monthly rate / total weekdays
-    daily_rate = subscription.monthly_rate / total_weekdays if total_weekdays > 0 else 0
-    total_bill = round(delivered_weekdays * daily_rate, 2)
+    for log in subscription.pause_logs:
+        # Check date overlap
+        start = max(log.pause_start, month_start)
+        end = min(log.pause_end, month_end)
+
+        if start <= end:
+            paused_days_count += (end - start).days + 1
+
+    active_days = days_in_month - paused_days_count
+    total_bill = round(active_days * daily_rate, 2)
 
     return {
-        "monthly_rate": subscription.monthly_rate,
-        "total_weekdays": total_weekdays,
-        "paused_weekdays": paused_weekdays,
-        "delivered_days": delivered_weekdays,
+        "days_in_month": days_in_month,
+        "paused_days": paused_days_count,
+        "active_days": active_days,
+        "daily_rate": round(daily_rate, 2),
         "total_bill": total_bill
     }

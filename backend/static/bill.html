@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DailyBite - Monthly Bill</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #0f172a; margin:0; padding: 40px 15px; }
+        .bill-card { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .bill-header { border-bottom: 2px dashed #e2e8f0; padding-bottom: 16px; margin-bottom: 16px; text-align: center; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 0.95rem; }
+        .total-row { border-top: 2px solid #0f172a; padding-top: 12px; font-weight: 700; font-size: 1.2rem; }
+        .amount { color: #059669; }
+        .due-date { color: #dc2626; font-weight: 700; }
+        .btn-back { display: block; text-align: center; background: #64748b; color: white; padding: 10px; border-radius: 6px; text-decoration: none; margin-top: 20px; font-weight: 600; }
+    </style>
+</head>
+<body>
+
+<div class="bill-card">
+    <div class="bill-header">
+        <h2 style="margin:0; color:#10b981;">🍱 DailyBite Invoice</h2>
+        <p style="margin:5px 0 0; color:#64748b;">Monthly Tiffin Service Bill</p>
+    </div>
+
+    <div class="row"><span>Customer Name:</span><strong id="custName">--</strong></div>
+    <div class="row"><span>Phone Number:</span><span id="custPhone">--</span></div>
+    <div class="row"><span>Billing Month/Year:</span><span id="billMonth">--</span></div>
+    
+    <hr style="border:none; border-top:1px solid #f1f5f9; margin: 16px 0;">
+
+    <div class="row"><span>Total Days in Month:</span><span id="totalDays">--</span></div>
+    <div class="row"><span>Days Tiffin Paused:</span><span id="pausedDays" style="color:#f59e0b;">--</span></div>
+    <div class="row"><span>Active Delivery Days:</span><span id="activeDays" style="color:#10b981;">--</span></div>
+
+    <div class="row total-row">
+        <span>Total Amount Due:</span>
+        <span class="amount" id="totalBill">₹0.0</span>
+    </div>
+
+    <div class="row" style="margin-top: 12px;">
+        <span>Pay Before Due Date:</span>
+        <span class="due-date" id="payBefore">--</span>
+    </div>
+
+    <a href="/dashboard" class="btn-back">← Back to Dashboard</a>
+</div>
+
+<script>
+    window.onload = async function() {
+        const stored = localStorage.getItem('currentUser');
+        if (!stored) {
+            window.location.href = '/login';
+            return;
+        }
+        const user = JSON.parse(stored);
+
+        const res = await fetch(`/api/v1/subscriptions/${user.subscription_id}/bill?year=2026&month=9`);
+        const bill = await res.json();
+
+        document.getElementById('custName').innerText = bill.customer_name;
+        document.getElementById('custPhone').innerText = bill.phone_number;
+        document.getElementById('billMonth').innerText = bill.month_year;
+        document.getElementById('totalDays').innerText = bill.days_in_month;
+        document.getElementById('pausedDays').innerText = bill.paused_days;
+        document.getElementById('activeDays').innerText = bill.active_days;
+        document.getElementById('totalBill').innerText = bill.total_amount_due;
+        document.getElementById('payBefore').innerText = bill.pay_before;
+    };
+</script>
+</body>
+</html>

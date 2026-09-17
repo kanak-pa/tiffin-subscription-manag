@@ -1,37 +1,23 @@
 from pydantic import BaseModel
 from datetime import date
 from typing import Optional
+from models import SubscriptionStatus
 
-# Base User Schema
-class UserBase(BaseModel):
+class UserRegister(BaseModel):
     name: str
     phone: str
 
-class UserCreate(UserBase):
-    pass
+class UserLogin(BaseModel):
+    phone: str
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
     id: int
+    name: str
+    phone: str
 
     class Config:
         from_attributes = True
 
-# Base Subscription Schema
-class SubscriptionBase(BaseModel):
-    user_id: int
-    monthly_rate: float
-
-class SubscriptionCreate(SubscriptionBase):
-    pass
-
-class SubscriptionResponse(SubscriptionBase):
-    id: int
-    status: str
-
-    class Config:
-        from_attributes = True
-
-# Pause Request Schema
 class PauseRequest(BaseModel):
     pause_start: date
     pause_end: date
