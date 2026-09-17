@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DailyBite - Tiffin Dashboard</title>
+    <title>DailyBite - Tiffin Management System</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -58,19 +58,14 @@
             color: var(--text-muted);
         }
 
-        input {
+        input, textarea {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid var(--border);
             border-radius: 6px;
             box-sizing: border-box;
             font-size: 0.95rem;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+            font-family: inherit;
         }
 
         button {
@@ -88,7 +83,6 @@
         .btn-primary { background-color: var(--primary); color: white; }
         .btn-primary:hover { background-color: var(--primary-dark); }
         .btn-warning { background-color: var(--warning); color: white; }
-        .btn-warning:hover { background-color: #d97706; }
 
         .badge {
             display: inline-block;
@@ -101,14 +95,31 @@
         .badge-active { background: #d1fae5; color: #065f46; }
         .badge-paused { background: #fef3c7; color: #92400e; }
 
+        .bill-card {
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
+            display: none;
+        }
+
+        .bill-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .bill-amount { font-size: 1.2rem; font-weight: 700; color: #059669; }
+        .bill-date { font-weight: 600; color: #dc2626; }
+
         pre {
             background: #1e293b;
             color: #f8fafc;
-            padding: 14px;
-            border-radius: 8px;
+            padding: 12px;
+            border-radius: 6px;
             overflow-x: auto;
-            font-size: 0.9rem;
-            margin-top: 12px;
+            font-size: 0.85rem;
         }
     </style>
 </head>
@@ -116,21 +127,35 @@
 
 <div class="container">
     <div class="header">
-        <h1>🍱 DailyBite Tiffin Provider</h1>
-        <p>Manage weekday subscriptions, pause/resume status, and monthly pro-rated bills</p>
+        <h1>🍱 DailyBite Tiffin System</h1>
+        <p>Subscriptions, Notifications & Importer Engine</p>
     </div>
 
-    <!-- Provider Dashboard -->
+    <!-- Subscriptions Overview -->
     <div class="card">
-        <h2>Provider Dashboard <button style="width: auto; margin:0; padding:6px 12px;" class="btn-primary" onclick="loadAllSubscriptions()">Refresh List</button></h2>
+        <h2>Subscriptions <button style="width: auto; margin:0; padding:6px 12px;" class="btn-primary" onclick="loadAllSubscriptions()">Refresh Table</button></h2>
         <div id="providerOverview">Loading subscriptions...</div>
     </div>
 
-    <!-- Pause / Resume Controls -->
+    <!-- Twist 3: Import -->
+    <div class="card">
+        <h2>Level 3: Import Messy Data (T4)</h2>
+        <label>Customer Payload (JSON Format)</label>
+        <textarea id="importPayload" rows="4">[
+  {"name":"Rahul Sharma", "phone":"987-654-3210"},
+  {"name":"Rahul Sharma", "phone":"9876543210"},
+  {"name":"Anita Roy", "phone":""},
+  {"name":"Suresh Kumar", "phone":"9123456789"}
+]</textarea>
+        <button class="btn-primary" onclick="importData()">Import & Generate Report</button>
+        <pre id="importOutput">// Output report: { imported, deduped, rejected }</pre>
+    </div>
+
+    <!-- Pause / Resume -->
     <div class="card">
         <h2>Pause / Resume Subscription</h2>
         <label>Subscription ID</label>
-        <input type="number" id="manageSubId" placeholder="e.g. 1">
+        <input type="number" id="manageSubId" placeholder="1">
         
         <div class="grid">
             <div>
@@ -151,15 +176,42 @@
                 <button class="btn-primary" onclick="resumeDelivery()">Resume Subscription</button>
             </div>
         </div>
-        
-        <pre id="manageOutput">// Status response</pre>
+        <div id="manageOutput" style="margin-top:12px; font-weight:600;"></div>
     </div>
 
-    <!-- Month-End Pro-Rated Bill -->
+    <!-- Twist 2: Transfer -->
+    <div class="card">
+        <h2>Level 2: Transfer Subscription (T6)</h2>
+        <div class="grid">
+            <div>
+                <label>Subscription ID</label>
+                <input type="number" id="transferSubId" placeholder="1">
+            </div>
+            <div>
+                <label>Target User ID</label>
+                <input type="number" id="transferNewUserId" placeholder="2">
+            </div>
+        </div>
+        <label>Effective Transfer Date</label>
+        <input type="date" id="transferDate">
+        <button class="btn-warning" onclick="transferSub()">Execute Mid-Cycle Transfer</button>
+        <div id="transferOutput" style="margin-top:12px; font-weight:600;"></div>
+    </div>
+
+    <!-- Twist 1: Clock / Outbox -->
+    <div class="card">
+        <h2>Level 1: Daily Clock & Outbox Notifications (T1)</h2>
+        <label>Simulation Date</label>
+        <input type="date" id="clockDate">
+        <button class="btn-primary" onclick="triggerClock()">Advance Clock (POST /clock)</button>
+        <pre id="clockOutput">// Delivery notification logs written to outbox</pre>
+    </div>
+
+    <!-- Bill Generator -->
     <div class="card">
         <h2>Generate Monthly Bill</h2>
         <label>Subscription ID</label>
-        <input type="number" id="billSubId" placeholder="e.g. 1">
+        <input type="number" id="billSubId" placeholder="1">
         <div class="grid">
             <div>
                 <label>Year</label>
@@ -171,54 +223,125 @@
             </div>
         </div>
         <button class="btn-primary" onclick="generateBill()">Calculate Bill</button>
-        <pre id="billOutput">// Clean bill details and pay date</pre>
+        
+        <div id="billDisplay" class="bill-card">
+            <div class="bill-row">
+                <span>Total Amount Due:</span>
+                <span id="billAmount" class="bill-amount"></span>
+            </div>
+            <div class="bill-row">
+                <span>Pay Before Date:</span>
+                <span id="billDate" class="bill-date"></span>
+            </div>
+        </div>
     </div>
 </div>
 
 <script>
+    // Initialize default dates
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('clockDate').value = today;
+    document.getElementById('pauseStart').value = today;
+    document.getElementById('pauseEnd').value = today;
+    document.getElementById('transferDate').value = today;
+
     async function loadAllSubscriptions() {
         const res = await fetch('/api/v1/subscriptions');
         const data = await res.json();
         const container = document.getElementById('providerOverview');
         if (Array.isArray(data) && data.length > 0) {
-            let html = '<table style="width:100%; border-collapse:collapse;"><tr><th style="text-align:left; padding:8px;">Sub ID</th><th style="text-align:left; padding:8px;">Rate (₹)</th><th style="text-align:left; padding:8px;">Status</th></tr>';
+            let html = '<table style="width:100%; border-collapse:collapse;"><tr><th style="text-align:left; padding:8px;">Sub ID</th><th style="text-align:left; padding:8px;">User ID</th><th style="text-align:left; padding:8px;">Rate (₹)</th><th style="text-align:left; padding:8px;">Status</th></tr>';
             data.forEach(item => {
-                const statusBadge = item.status === 'PAUSED' 
+                const isPaused = item.status === 'PAUSED';
+                const statusBadge = isPaused 
                     ? '<span class="badge badge-paused">PAUSED</span>' 
                     : '<span class="badge badge-active">ACTIVE</span>';
-                html += `<tr style="border-top:1px solid #e2e8f0;"><td style="padding:8px;">#${item.id}</td><td style="padding:8px;">₹${item.monthly_rate}</td><td style="padding:8px;">${statusBadge}</td></tr>`;
+                html += `<tr style="border-top:1px solid #e2e8f0;"><td style="padding:8px;">#${item.id}</td><td style="padding:8px;">User #${item.user_id}</td><td style="padding:8px;">₹${item.monthly_rate}</td><td style="padding:8px;">${statusBadge}</td></tr>`;
             });
             html += '</table>';
             container.innerHTML = html;
         } else {
-            container.innerText = 'No subscriptions found in the database.';
+            container.innerText = 'No subscriptions found.';
+        }
+    }
+
+    async function importData() {
+        try {
+            const raw = document.getElementById('importPayload').value;
+            const parsed = JSON.parse(raw);
+            const res = await fetch('/import', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(parsed)
+            });
+            const data = await res.json();
+            document.getElementById('importOutput').innerText = JSON.stringify(data, null, 2);
+            await loadAllSubscriptions();
+        } catch (e) {
+            alert('Invalid JSON structure in text area.');
         }
     }
 
     async function pauseDelivery() {
         const subId = document.getElementById('manageSubId').value;
-        const pauseStart = document.getElementById('pauseStart').value;
-        const pauseEnd = document.getElementById('pauseEnd').value;
+        const start = document.getElementById('pauseStart').value;
+        const end = document.getElementById('pauseEnd').value;
+        
+        if (!subId || !start || !end) {
+            alert("Please provide Subscription ID, Start Date, and End Date");
+            return;
+        }
 
         const res = await fetch(`/api/v1/subscriptions/${subId}/pause`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ pause_start: pauseStart, pause_end: pauseEnd })
+            body: JSON.stringify({ pause_start: start, pause_end: end })
         });
         const data = await res.json();
-        document.getElementById('manageOutput').innerText = JSON.stringify(data, null, 2);
-        loadAllSubscriptions();
+        document.getElementById('manageOutput').innerText = data.message || "Updated";
+        await loadAllSubscriptions();
     }
 
     async function resumeDelivery() {
         const subId = document.getElementById('manageSubId').value;
+        if (!subId) {
+            alert("Please enter a Subscription ID");
+            return;
+        }
+        const res = await fetch(`/api/v1/subscriptions/${subId}/resume`, { method: 'POST' });
+        const data = await res.json();
+        document.getElementById('manageOutput').innerText = data.message || "Updated";
+        await loadAllSubscriptions();
+    }
 
-        const res = await fetch(`/api/v1/subscriptions/${subId}/resume`, {
+    async function transferSub() {
+        const subId = document.getElementById('transferSubId').value;
+        const newUserId = document.getElementById('transferNewUserId').value;
+        const effDate = document.getElementById('transferDate').value;
+        
+        if (!subId || !newUserId || !effDate) {
+            alert("Provide Subscription ID, Target User ID, and Effective Date");
+            return;
+        }
+
+        const res = await fetch(`/api/v1/subscriptions/${subId}/transfer?new_user_id=${newUserId}&effective_date=${effDate}`, {
             method: 'POST'
         });
         const data = await res.json();
-        document.getElementById('manageOutput').innerText = JSON.stringify(data, null, 2);
-        loadAllSubscriptions();
+        document.getElementById('transferOutput').innerText = data.message || JSON.stringify(data);
+        await loadAllSubscriptions();
+    }
+
+    async function triggerClock() {
+        const clockDate = document.getElementById('clockDate').value;
+        if (!clockDate) {
+            alert("Select a date to advance the clock");
+            return;
+        }
+        await fetch(`/clock?current_date=${clockDate}`, { method: 'POST' });
+        const res = await fetch('/outbox');
+        const outboxData = await res.json();
+        document.getElementById('clockOutput').innerText = JSON.stringify(outboxData, null, 2);
     }
 
     async function generateBill() {
@@ -226,9 +349,21 @@
         const year = document.getElementById('billYear').value;
         const month = document.getElementById('billMonth').value;
 
+        if (!subId) {
+            alert("Enter a Subscription ID");
+            return;
+        }
+
         const res = await fetch(`/api/v1/subscriptions/${subId}/bill?year=${year}&month=${month}`);
         const data = await res.json();
-        document.getElementById('billOutput').innerText = JSON.stringify(data, null, 2);
+
+        if (data.total_amount_due) {
+            document.getElementById('billAmount').innerText = data.total_amount_due;
+            document.getElementById('billDate').innerText = data.pay_before;
+            document.getElementById('billDisplay').style.display = 'block';
+        } else {
+            alert("Error generating bill.");
+        }
     }
 
     window.onload = loadAllSubscriptions;
