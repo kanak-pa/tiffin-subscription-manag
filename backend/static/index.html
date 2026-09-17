@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DailyBite - Tiffin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --warning: #f59e0b;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 30px 15px;
+        }
+
+        .container { max-width: 850px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { font-size: 2rem; margin: 0; color: var(--text); }
+        .header p { color: var(--text-muted); margin-top: 5px; }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            margin-top: 0;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+        }
+
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 0.95rem;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 11px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 12px;
+        }
+
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-dark); }
+        .btn-warning { background-color: var(--warning); color: white; }
+        .btn-warning:hover { background-color: #d97706; }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .badge-active { background: #d1fae5; color: #065f46; }
+        .badge-paused { background: #fef3c7; color: #92400e; }
+
+        pre {
+            background: #1e293b;
+            color: #f8fafc;
+            padding: 14px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.9rem;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🍱 DailyBite Tiffin Provider</h1>
+        <p>Manage weekday subscriptions, pause/resume status, and monthly pro-rated bills</p>
+    </div>
+
+    <!-- Provider Dashboard -->
+    <div class="card">
+        <h2>Provider Dashboard <button style="width: auto; margin:0; padding:6px 12px;" class="btn-primary" onclick="loadAllSubscriptions()">Refresh List</button></h2>
+        <div id="providerOverview">Loading subscriptions...</div>
+    </div>
+
+    <!-- Pause / Resume Controls -->
+    <div class="card">
+        <h2>Pause / Resume Subscription</h2>
+        <label>Subscription ID</label>
+        <input type="number" id="manageSubId" placeholder="e.g. 1">
+        
+        <div class="grid">
+            <div>
+                <label>Pause Start Date</label>
+                <input type="date" id="pauseStart">
+            </div>
+            <div>
+                <label>Pause End Date</label>
+                <input type="date" id="pauseEnd">
+            </div>
+        </div>
+        
+        <div class="grid">
+            <div>
+                <button class="btn-warning" onclick="pauseDelivery()">Pause Subscription</button>
+            </div>
+            <div>
+                <button class="btn-primary" onclick="resumeDelivery()">Resume Subscription</button>
+            </div>
+        </div>
+        
+        <pre id="manageOutput">// Status response</pre>
+    </div>
+
+    <!-- Month-End Pro-Rated Bill -->
+    <div class="card">
+        <h2>Generate Monthly Bill</h2>
+        <label>Subscription ID</label>
+        <input type="number" id="billSubId" placeholder="e.g. 1">
+        <div class="grid">
+            <div>
+                <label>Year</label>
+                <input type="number" id="billYear" value="2026">
+            </div>
+            <div>
+                <label>Month</label>
+                <input type="number" id="billMonth" value="9" min="1" max="12">
+            </div>
+        </div>
+        <button class="btn-primary" onclick="generateBill()">Calculate Bill</button>
+        <pre id="billOutput">// Clean bill details and pay date</pre>
+    </div>
+</div>
+
+<script>
+    async function loadAllSubscriptions() {
+        const res = await fetch('/api/v1/subscriptions');
+        const data = await res.json();
+        const container = document.getElementById('providerOverview');
+        if (Array.isArray(data) && data.length > 0) {
+            let html = '<table style="width:100%; border-collapse:collapse;"><tr><th style="text-align:left; padding:8px;">Sub ID</th><th style="text-align:left; padding:8px;">Rate (₹)</th><th style="text-align:left; padding:8px;">Status</th></tr>';
+            data.forEach(item => {
+                const statusBadge = item.status === 'PAUSED' 
+                    ? '<span class="badge badge-paused">PAUSED</span>' 
+                    : '<span class="badge badge-active">ACTIVE</span>';
+                html += `<tr style="border-top:1px solid #e2e8f0;"><td style="padding:8px;">#${item.id}</td><td style="padding:8px;">₹${item.monthly_rate}</td><td style="padding:8px;">${statusBadge}</td></tr>`;
+            });
+            html += '</table>';
+            container.innerHTML = html;
+        } else {
+            container.innerText = 'No subscriptions found in the database.';
+        }
+    }
+
+    async function pauseDelivery() {
+        const subId = document.getElementById('manageSubId').value;
+        const pauseStart = document.getElementById('pauseStart').value;
+        const pauseEnd = document.getElementById('pauseEnd').value;
+
+        const res = await fetch(`/api/v1/subscriptions/${subId}/pause`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ pause_start: pauseStart, pause_end: pauseEnd })
+        });
+        const data = await res.json();
+        document.getElementById('manageOutput').innerText = JSON.stringify(data, null, 2);
+        loadAllSubscriptions();
+    }
+
+    async function resumeDelivery() {
+        const subId = document.getElementById('manageSubId').value;
+
+        const res = await fetch(`/api/v1/subscriptions/${subId}/resume`, {
+            method: 'POST'
+        });
+        const data = await res.json();
+        document.getElementById('manageOutput').innerText = JSON.stringify(data, null, 2);
+        loadAllSubscriptions();
+    }
+
+    async function generateBill() {
+        const subId = document.getElementById('billSubId').value;
+        const year = document.getElementById('billYear').value;
+        const month = document.getElementById('billMonth').value;
+
+        const res = await fetch(`/api/v1/subscriptions/${subId}/bill?year=${year}&month=${month}`);
+        const data = await res.json();
+        document.getElementById('billOutput').innerText = JSON.stringify(data, null, 2);
+    }
+
+    window.onload = loadAllSubscriptions;
+</script>
+
+</body>
+</html>
